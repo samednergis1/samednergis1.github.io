@@ -136,7 +136,46 @@
   </style>
 </head>
 <body class="text-zinc-100 min-h-screen p-4 md:p-6">
-  <div class="max-w-7xl mx-auto space-y-5">
+  <div id="loginView" class="min-h-[92vh] flex items-center justify-center">
+    <section class="industrial-card w-full max-w-3xl rounded-2xl p-6 md:p-8">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-industry text-cyan-300 text-xl"></i>
+          <p class="text-zinc-300 text-sm md:text-base" id="loginSubtitle"></p>
+        </div>
+        <button id="loginLangToggle" class="px-3 py-1.5 rounded-md bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold border border-zinc-500"></button>
+      </div>
+
+      <h1 id="loginTitle" class="text-2xl md:text-4xl font-bold tracking-wide text-zinc-100 mb-6"></h1>
+
+      <form id="loginForm" class="space-y-5">
+        <div>
+          <label id="companyLabel" for="companySelect" class="block mb-2 text-zinc-200 font-semibold"></label>
+          <select
+            id="companySelect"
+            class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-zinc-100 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
+          ></select>
+        </div>
+
+        <div>
+          <label id="passwordLabel" for="passwordInput" class="block mb-2 text-zinc-200 font-semibold"></label>
+          <input
+            id="passwordInput"
+            type="password"
+            class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-zinc-100 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
+          />
+        </div>
+
+        <button
+          id="loginBtn"
+          type="submit"
+          class="w-full py-3 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 font-bold tracking-wide border border-cyan-300/40 shadow-lg shadow-cyan-900/50"
+        ></button>
+      </form>
+    </section>
+  </div>
+
+  <div id="appView" class="max-w-7xl mx-auto space-y-5 hidden">
     <!-- Header -->
     <header class="industrial-card rounded-xl p-4 md:p-5 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -279,6 +318,14 @@
      */
     const i18n = {
       en: {
+        loginTitle: "Industrial Access Portal",
+        loginSubtitle: "Secure entry to the HMI lab",
+        companyLabel: "Company Name",
+        passwordLabel: "Password",
+        loginButton: "Sign In",
+        selectCompanyPlaceholder: "Select company line...",
+        alertSelectCompany: "Please select a company line.",
+        logLogin: "[SYS] Operator session opened for",
         titleLab: "HMI Cognitive Research Lab",
         langLabel: "Language",
         hypothesisTitle: "Research Hypothesis",
@@ -323,6 +370,14 @@
         logLangChanged: "[SYS] Language switched to English."
       },
       tr: {
+        loginTitle: "Endustriyel Erisim Portali",
+        loginSubtitle: "HMI laboratuvarina guvenli giris",
+        companyLabel: "Sirket Adi",
+        passwordLabel: "Parola",
+        loginButton: "Giris Yap",
+        selectCompanyPlaceholder: "Sirket hatti seciniz...",
+        alertSelectCompany: "Lutfen bir sirket hatti secin.",
+        logLogin: "[SYS] Operator oturumu acildi:",
         titleLab: "HMI Bilissel Arastirma Laboratuvari",
         langLabel: "Dil",
         hypothesisTitle: "Arastirma Hipotezi",
@@ -379,6 +434,7 @@
      * - startTime (timestamp)
      */
     let currentLang = "en";
+    let selectedCompanyId = "";
     let currentTemp = 75.0;
     let testMode = "raw";
     let status = "idle";
@@ -391,8 +447,34 @@
       visual: []
     };
 
+    const companyLines = [
+      { id: "siemens", name: "Siemens", lineEn: "Digital Automation Line", lineTr: "Dijital Otomasyon Hatti" },
+      { id: "bosch", name: "Bosch", lineEn: "Smart Factory Sensor Line", lineTr: "Akilli Fabrika Sensor Hatti" },
+      { id: "schneider", name: "Schneider Electric", lineEn: "Energy Control Systems Line", lineTr: "Enerji Kontrol Sistemleri Hatti" },
+      { id: "abb", name: "ABB", lineEn: "Robotic Assembly Line", lineTr: "Robotik Montaj Hatti" },
+      { id: "honeywell", name: "Honeywell", lineEn: "Industrial Safety Platform Line", lineTr: "Endustriyel Guvenlik Platformu Hatti" },
+      { id: "ge", name: "General Electric", lineEn: "Turbine Monitoring Line", lineTr: "Turbin Izleme Hatti" },
+      { id: "aselsan", name: "ASELSAN", lineEn: "Defense Electronics Integration Line", lineTr: "Savunma Elektronigi Entegrasyon Hatti" },
+      { id: "tusas", name: "TUSAS", lineEn: "Aerospace Production Line", lineTr: "Havacilik Uretim Hatti" },
+      { id: "arcelik", name: "Arcelik", lineEn: "Appliance Automation Line", lineTr: "Beyaz Esya Otomasyon Hatti" },
+      { id: "vestel", name: "Vestel", lineEn: "Consumer Electronics Assembly Line", lineTr: "Tuketici Elektronigi Montaj Hatti" }
+    ];
+
     // Cache common DOM references.
     const dom = {
+      // Login
+      loginView: document.getElementById("loginView"),
+      appView: document.getElementById("appView"),
+      loginTitle: document.getElementById("loginTitle"),
+      loginSubtitle: document.getElementById("loginSubtitle"),
+      companyLabel: document.getElementById("companyLabel"),
+      companySelect: document.getElementById("companySelect"),
+      passwordLabel: document.getElementById("passwordLabel"),
+      passwordInput: document.getElementById("passwordInput"),
+      loginBtn: document.getElementById("loginBtn"),
+      loginForm: document.getElementById("loginForm"),
+      loginLangToggle: document.getElementById("loginLangToggle"),
+
       // Header
       titleLab: document.getElementById("titleLab"),
       langLabel: document.getElementById("langLabel"),
@@ -450,6 +532,34 @@
 
     function formatTemp(value) {
       return `${value.toFixed(1)} C`;
+    }
+
+    function selectedCompany() {
+      return companyLines.find((item) => item.id === selectedCompanyId) || null;
+    }
+
+    function companyLineLabel(item) {
+      return `${item.name} - ${currentLang === "en" ? item.lineEn : item.lineTr}`;
+    }
+
+    function populateCompanyOptions() {
+      const currentSelection = dom.companySelect.value || selectedCompanyId;
+      dom.companySelect.innerHTML = "";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = t("selectCompanyPlaceholder");
+      dom.companySelect.appendChild(placeholder);
+
+      companyLines.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = companyLineLabel(item);
+        dom.companySelect.appendChild(option);
+      });
+
+      dom.companySelect.value = currentSelection;
+      selectedCompanyId = dom.companySelect.value;
     }
 
     function logToTerminal(message) {
@@ -625,12 +735,22 @@
     }
 
     function applyTranslations() {
+      // Login
+      dom.loginTitle.textContent = t("loginTitle");
+      dom.loginSubtitle.textContent = t("loginSubtitle");
+      dom.companyLabel.textContent = t("companyLabel");
+      dom.passwordLabel.textContent = t("passwordLabel");
+      dom.loginBtn.textContent = t("loginButton");
+      populateCompanyOptions();
+
       // Header/hypothesis
       dom.titleLab.textContent = t("titleLab");
       dom.langLabel.textContent = `${t("langLabel")}:`;
       dom.hypothesisTitle.textContent = t("hypothesisTitle");
       dom.hypothesisText.textContent = t("hypothesisText");
-      dom.langToggle.textContent = currentLang.toUpperCase();
+      const toggleLabel = currentLang === "en" ? "TR" : "EN";
+      dom.langToggle.textContent = toggleLabel;
+      dom.loginLangToggle.textContent = toggleLabel;
 
       // Controls
       dom.modeTitle.textContent = t("modeTitle");
@@ -666,6 +786,26 @@
      * Initial bindings and startup.
      */
     function init() {
+      dom.companySelect.addEventListener("change", () => {
+        selectedCompanyId = dom.companySelect.value;
+      });
+
+      dom.loginForm.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        selectedCompanyId = dom.companySelect.value;
+        if (!selectedCompanyId) {
+          alert(t("alertSelectCompany"));
+          return;
+        }
+
+        dom.loginView.classList.add("hidden");
+        dom.appView.classList.remove("hidden");
+        const company = selectedCompany();
+        if (company) {
+          logToTerminal(`${t("logLogin")} ${company.name}`);
+        }
+      });
+
       // Mode radio controls (A/B independent variable)
       document.querySelectorAll('input[name="mode"]').forEach((radio) => {
         radio.addEventListener("change", (ev) => {
@@ -682,11 +822,13 @@
       dom.estopBtn.addEventListener("click", emergencyStop);
 
       // TR/EN toggle
-      dom.langToggle.addEventListener("click", () => {
+      const switchLanguage = () => {
         currentLang = currentLang === "en" ? "tr" : "en";
         applyTranslations();
         logToTerminal(t("logLangChanged"));
-      });
+      };
+      dom.langToggle.addEventListener("click", switchLanguage);
+      dom.loginLangToggle.addEventListener("click", switchLanguage);
 
       applyTranslations();
       updateModePanels();
