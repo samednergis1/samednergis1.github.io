@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Industrial HMI Cognitive Load Experiment</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome CDN -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    integrity="sha512-SnH5WK+bZxgPHs44uWix+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkR4j8tbt7f1oVn9w+8T7f2jM6P4F8M0zYhA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <!-- Google Fonts (monospace style for industrial display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-main: #18181b;
+      --bg-panel: #27272a;
+      --bg-screen: #0f172a;
+      --metal-border: rgba(148, 163, 184, 0.28);
+      --danger: #ef4444;
+      --danger-neon: #ff1f1f;
+      --safe: #22c55e;
+      --warn: #facc15;
+      --terminal: #00ff7f;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e1e2f 0%, var(--bg-main) 50%, #111827 100%);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .mono {
+      font-family: "VT323", Consolas, "Courier New", monospace;
+      letter-spacing: 0.06em;
+    }
+
+    .industrial-card {
+      background: linear-gradient(145deg, #2a2a2e, #242428);
+      border: 1px solid var(--metal-border);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .scanline {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scanline::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.04) 0px,
+        rgba(255, 255, 255, 0.04) 1px,
+        transparent 2px,
+        transparent 4px
+      );
+      opacity: 0.15;
+    }
+
+    /* Massive tactile E-STOP style */
+    .estop-btn {
+      width: 190px;
+      height: 190px;
+      border-radius: 9999px;
+      border: 8px solid #5f0f0f;
+      background: radial-gradient(circle at 30% 20%, #ff7070 0%, #ff2f2f 38%, #d10000 65%, #940000 100%);
+      box-shadow:
+        0 0 18px rgba(255, 0, 0, 0.55),
+        0 0 38px rgba(255, 0, 0, 0.35),
+        inset 0 4px 7px rgba(255, 255, 255, 0.45),
+        inset 0 -10px 12px rgba(0, 0, 0, 0.45),
+        0 14px 0 #460b0b,
+        0 20px 35px rgba(0, 0, 0, 0.65);
+      transform: translateY(0);
+      transition: transform 100ms ease, box-shadow 100ms ease, filter 120ms ease;
+      filter: saturate(1.1);
+    }
+
+    .estop-btn:hover {
+      filter: brightness(1.06) saturate(1.15);
+    }
+
+    .estop-btn:active {
+      transform: translateY(8px);
+      box-shadow:
+        0 0 10px rgba(255, 0, 0, 0.45),
+        inset 0 3px 6px rgba(255, 255, 255, 0.35),
+        inset 0 -8px 10px rgba(0, 0, 0, 0.5),
+        0 6px 0 #460b0b,
+        0 8px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .estop-label {
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+    }
+
+    .danger-pulse {
+      animation: dangerPulse 650ms infinite;
+    }
+
+    @keyframes dangerPulse {
+      0% {
+        box-shadow: 0 0 0 rgba(239, 68, 68, 0);
+      }
+      50% {
+        box-shadow: 0 0 28px rgba(239, 68, 68, 0.7), inset 0 0 45px rgba(239, 68, 68, 0.35);
+      }
+      100% {
+        box-shadow: 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    .terminal {
+      background-color: #000;
+      color: var(--terminal);
+      border: 1px solid #0f5132;
+      font-family: Consolas, "Courier New", monospace;
+      min-height: 180px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body class="text-zinc-100 min-h-screen p-4 md:p-6">
+  <div class="max-w-7xl mx-auto space-y-5">
+    <!-- Header -->
+    <header class="industrial-card rounded-xl p-4 md:p-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-microchip text-cyan-400 text-xl"></i>
+        <h1 id="titleLab" class="text-lg md:text-2xl font-bold tracking-wide"></h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="langLabel" class="text-sm text-zinc-300"></span>
+        <button id="langToggle" class="px-3 py-1.5 rounded-md bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold border border-zinc-500">
+          EN
+        </button>
+      </div>
+    </header>
+
+    <!-- Hypothesis -->
+    <section class="industrial-card rounded-xl p-4 md:p-5">
+      <h2 id="hypothesisTitle" class="text-base md:text-lg font-semibold mb-2 text-cyan-300"></h2>
+      <p id="hypothesisText" class="text-zinc-200 leading-relaxed"></p>
+    </section>
+
+    <!-- Main Dashboard -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- Left controls -->
+      <section class="industrial-card rounded-xl p-4 md:p-5 lg:col-span-3 space-y-5">
+        <div>
+          <h3 id="modeTitle" class="font-semibold text-cyan-300 mb-3"></h3>
+          <label class="flex items-center gap-3 p-2 rounded bg-zinc-800/80 mb-2 cursor-pointer">
+            <input type="radio" name="mode" value="raw" class="accent-cyan-400" checked />
+            <span id="modeRawLabel"></span>
+          </label>
+          <label class="flex items-center gap-3 p-2 rounded bg-zinc-800/80 cursor-pointer">
+            <input type="radio" name="mode" value="visual" class="accent-cyan-400" />
+            <span id="modeVisualLabel"></span>
+          </label>
+        </div>
+
+        <button
+          id="startBtn"
+          class="w-full py-3 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 font-bold tracking-wide border border-cyan-300/40 shadow-lg shadow-cyan-900/50"
+        >
+          START
+        </button>
+
+        <div class="bg-zinc-900 rounded-lg p-3 border border-zinc-700">
+          <p id="statusLabel" class="text-sm text-zinc-300"></p>
+          <p id="statusValue" class="mono text-3xl text-cyan-300"></p>
+        </div>
+      </section>
+
+      <!-- Center HMI display -->
+      <section id="hmiContainer" class="industrial-card rounded-xl p-4 md:p-5 lg:col-span-6">
+        <div class="scanline bg-slate-950 rounded-lg border border-slate-700 min-h-[360px] flex items-center justify-center p-6">
+          <!-- RAW MODE PANEL -->
+          <div id="rawPanel" class="w-full text-center hidden">
+            <p id="rawTitle" class="text-zinc-300 mb-3 tracking-widest"></p>
+            <p id="rawTempText" class="mono text-6xl md:text-8xl text-zinc-100">75.0 C</p>
+            <p class="text-zinc-500 mt-5 text-sm" id="rawHint"></p>
+          </div>
+
+          <!-- VISUAL MODE PANEL -->
+          <div id="visualPanel" class="w-full max-w-[460px] hidden">
+            <p id="visualTitle" class="text-zinc-300 text-center mb-4 tracking-widest"></p>
+            <div id="gaugeShell" class="mx-auto w-full h-72 rounded-xl border border-zinc-600 bg-zinc-900 p-4 transition-all duration-150">
+              <div class="h-full w-full rounded-lg border border-zinc-700 bg-gradient-to-b from-zinc-800 to-zinc-900 p-3 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-zinc-400">
+                  <span>100C</span><span>82C</span><span>0C</span>
+                </div>
+
+                <div class="flex items-end justify-center h-52">
+                  <div class="w-20 h-full bg-zinc-800 rounded-md border border-zinc-700 relative overflow-hidden">
+                    <div id="gaugeFill" class="absolute bottom-0 left-0 w-full transition-all duration-150" style="height: 0%; background:#22c55e;"></div>
+                  </div>
+                  <div class="ml-6">
+                    <p class="mono text-5xl text-zinc-100" id="visualTempText">75.0 C</p>
+                    <p id="visualStateText" class="text-zinc-400 mt-1"></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right E-STOP -->
+      <section class="industrial-card rounded-xl p-4 md:p-5 lg:col-span-3 flex flex-col items-center justify-center gap-4">
+        <p id="estopCaption" class="font-semibold text-red-300 tracking-wider"></p>
+        <button id="estopBtn" class="estop-btn flex items-center justify-center" aria-label="Emergency Stop">
+          <span class="estop-label text-white font-extrabold text-3xl md:text-4xl">E-STOP</span>
+        </button>
+        <p id="estopHint" class="text-zinc-400 text-sm text-center"></p>
+      </section>
+    </main>
+
+    <!-- Results + terminal -->
+    <section class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      <div class="industrial-card rounded-xl p-4 md:p-5 xl:col-span-6">
+        <h3 id="analyticsTitle" class="font-semibold text-cyan-300 mb-3"></h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="bg-zinc-800">
+                <th id="tableModeCol" class="text-left p-2 border border-zinc-700"></th>
+                <th id="tableAvgCol" class="text-left p-2 border border-zinc-700"></th>
+                <th id="tableCountCol" class="text-left p-2 border border-zinc-700"></th>
+                <th id="tableLastCol" class="text-left p-2 border border-zinc-700"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="p-2 border border-zinc-700" id="modeAName"></td>
+                <td class="p-2 border border-zinc-700 mono" id="modeAAvg">-</td>
+                <td class="p-2 border border-zinc-700 mono" id="modeACount">0</td>
+                <td class="p-2 border border-zinc-700 mono" id="modeALast">-</td>
+              </tr>
+              <tr>
+                <td class="p-2 border border-zinc-700" id="modeBName"></td>
+                <td class="p-2 border border-zinc-700 mono" id="modeBAvg">-</td>
+                <td class="p-2 border border-zinc-700 mono" id="modeBCount">0</td>
+                <td class="p-2 border border-zinc-700 mono" id="modeBLast">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="industrial-card rounded-xl p-4 md:p-5 xl:col-span-6">
+        <h3 id="terminalTitle" class="font-semibold text-cyan-300 mb-3"></h3>
+        <div id="terminal" class="terminal rounded-lg p-3 text-sm"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    "use strict";
+
+    /**
+     * -------------------------------
+     * Localization dictionary (TR/EN)
+     * -------------------------------
+     */
+    const i18n = {
+      en: {
+        titleLab: "HMI Cognitive Research Lab",
+        langLabel: "Language",
+        hypothesisTitle: "Research Hypothesis",
+        hypothesisText:
+          "Does visual data representation (gauges/colors) significantly reduce human reaction time to critical system anomalies compared to raw numerical data in industrial panels?",
+        modeTitle: "Experiment Group",
+        modeRawLabel: "Mode A - Raw Data",
+        modeVisualLabel: "Mode B - Visual Data",
+        startButton: "START SYSTEM TEST",
+        statusLabel: "System Status",
+        statusIdle: "IDLE",
+        statusRunning: "RUNNING",
+        statusDanger: "DANGER",
+        statusStopped: "STOPPED",
+        rawTitle: "RAW TELEMETRY DISPLAY",
+        rawHint: "No visual warning cue is provided in Mode A.",
+        visualTitle: "VISUAL ALERT GAUGE",
+        visualNormal: "NORMAL",
+        visualCaution: "CAUTION",
+        visualDanger: "CRITICAL",
+        estopCaption: "EMERGENCY CONTROL",
+        estopHint: "Press only when critical threshold is reached.",
+        analyticsTitle: "Recent Reaction Times",
+        tableModeCol: "Mode",
+        tableAvgCol: "Average (ms)",
+        tableCountCol: "Trials",
+        tableLastCol: "Last (ms)",
+        modeAName: "Group A (Raw)",
+        modeBName: "Group B (Visual)",
+        terminalTitle: "System Terminal",
+        alertReaction: "Reaction Time:",
+        alertFalseAlarm: "False Alarm! Temperature was below 90.0C.",
+        alertAlreadyStopped: "System is not in an active test state.",
+        logReady: "[SYS] HMI experiment console initialized.",
+        logStart: "[SYS] Engine started. Monitoring motor temperature.",
+        logRise: "[WARN] Temp rising",
+        logDanger: "[CRIT] Threshold exceeded at",
+        logStopSuccess: "[EVENT] E-STOP engaged at",
+        logFalseAlarm: "[ERROR] False alarm. E-STOP before threshold.",
+        logReset: "[SYS] Test sequence reset.",
+        logModeChanged: "[SYS] Mode switched to",
+        logLangChanged: "[SYS] Language switched to English."
+      },
+      tr: {
+        titleLab: "HMI Bilissel Arastirma Laboratuvari",
+        langLabel: "Dil",
+        hypothesisTitle: "Arastirma Hipotezi",
+        hypothesisText:
+          "Endustriyel panellerde gorsel veri temsili (gostergeler/renkler), ham sayisal veriye gore kritik sistem anomalilerine insan tepki suresini anlamli bicimde azaltir mi?",
+        modeTitle: "Deney Grubu",
+        modeRawLabel: "Mod A - Ham Veri",
+        modeVisualLabel: "Mod B - Gorsel Veri",
+        startButton: "SISTEM TESTINI BASLAT",
+        statusLabel: "Sistem Durumu",
+        statusIdle: "BOSTA",
+        statusRunning: "CALISIYOR",
+        statusDanger: "TEHLIKE",
+        statusStopped: "DURDU",
+        rawTitle: "HAM TELEMETRI EKRANI",
+        rawHint: "Mod A'da gorsel uyari ipucu yoktur.",
+        visualTitle: "GORSEL ALARM GOSTERGESI",
+        visualNormal: "NORMAL",
+        visualCaution: "DIKKAT",
+        visualDanger: "KRITIK",
+        estopCaption: "ACIL DURDURMA",
+        estopHint: "Sadece kritik esik asildiginda basin.",
+        analyticsTitle: "Son Tepki Sureleri",
+        tableModeCol: "Mod",
+        tableAvgCol: "Ortalama (ms)",
+        tableCountCol: "Deneme",
+        tableLastCol: "Son (ms)",
+        modeAName: "Grup A (Ham)",
+        modeBName: "Grup B (Gorsel)",
+        terminalTitle: "Sistem Terminali",
+        alertReaction: "Tepki Suresi:",
+        alertFalseAlarm: "Yanlis Alarm! Sicaklik 90.0C altindaydi.",
+        alertAlreadyStopped: "Sistem aktif bir test durumunda degil.",
+        logReady: "[SYS] HMI deney konsolu baslatildi.",
+        logStart: "[SYS] Motor baslatildi. Sicaklik izleniyor.",
+        logRise: "[WARN] Sicaklik yukseliyor",
+        logDanger: "[CRIT] Esik degeri asildi:",
+        logStopSuccess: "[EVENT] E-STOP uygulandi:",
+        logFalseAlarm: "[ERROR] Yanlis alarm. Esik asilmadan E-STOP.",
+        logReset: "[SYS] Test dizisi sifirlandi.",
+        logModeChanged: "[SYS] Mod degistirildi:",
+        logLangChanged: "[SYS] Dil Turkce olarak ayarlandi."
+      }
+    };
+
+    /**
+     * -----------------------------------
+     * Core experiment state / engine vars
+     * -----------------------------------
+     * Required by the prompt:
+     * - currentTemp (starts 75.0)
+     * - testMode ('raw' or 'visual')
+     * - status ('idle','running','danger','stopped')
+     * - startTime (timestamp)
+     */
+    let currentLang = "en";
+    let currentTemp = 75.0;
+    let testMode = "raw";
+    let status = "idle";
+    let startTime = null;
+    let intervalRef = null;
+
+    // Keep separate result arrays for A/B comparison analytics.
+    const results = {
+      raw: [],
+      visual: []
+    };
+
+    // Cache common DOM references.
+    const dom = {
+      // Header
+      titleLab: document.getElementById("titleLab"),
+      langLabel: document.getElementById("langLabel"),
+      langToggle: document.getElementById("langToggle"),
+      hypothesisTitle: document.getElementById("hypothesisTitle"),
+      hypothesisText: document.getElementById("hypothesisText"),
+
+      // Left controls
+      modeTitle: document.getElementById("modeTitle"),
+      modeRawLabel: document.getElementById("modeRawLabel"),
+      modeVisualLabel: document.getElementById("modeVisualLabel"),
+      startBtn: document.getElementById("startBtn"),
+      statusLabel: document.getElementById("statusLabel"),
+      statusValue: document.getElementById("statusValue"),
+
+      // HMI panels
+      rawPanel: document.getElementById("rawPanel"),
+      visualPanel: document.getElementById("visualPanel"),
+      rawTitle: document.getElementById("rawTitle"),
+      rawTempText: document.getElementById("rawTempText"),
+      rawHint: document.getElementById("rawHint"),
+      visualTitle: document.getElementById("visualTitle"),
+      visualTempText: document.getElementById("visualTempText"),
+      visualStateText: document.getElementById("visualStateText"),
+      gaugeFill: document.getElementById("gaugeFill"),
+      gaugeShell: document.getElementById("gaugeShell"),
+
+      // E-stop
+      estopCaption: document.getElementById("estopCaption"),
+      estopHint: document.getElementById("estopHint"),
+      estopBtn: document.getElementById("estopBtn"),
+
+      // Analytics
+      analyticsTitle: document.getElementById("analyticsTitle"),
+      tableModeCol: document.getElementById("tableModeCol"),
+      tableAvgCol: document.getElementById("tableAvgCol"),
+      tableCountCol: document.getElementById("tableCountCol"),
+      tableLastCol: document.getElementById("tableLastCol"),
+      modeAName: document.getElementById("modeAName"),
+      modeBName: document.getElementById("modeBName"),
+      modeAAvg: document.getElementById("modeAAvg"),
+      modeBAvg: document.getElementById("modeBAvg"),
+      modeACount: document.getElementById("modeACount"),
+      modeBCount: document.getElementById("modeBCount"),
+      modeALast: document.getElementById("modeALast"),
+      modeBLast: document.getElementById("modeBLast"),
+
+      // Terminal
+      terminalTitle: document.getElementById("terminalTitle"),
+      terminal: document.getElementById("terminal")
+    };
+
+    // Helper to select translation strings quickly.
+    const t = (key) => i18n[currentLang][key] || key;
+
+    function formatTemp(value) {
+      return `${value.toFixed(1)} C`;
+    }
+
+    function logToTerminal(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      const line = document.createElement("div");
+      line.textContent = `${timestamp} ${message}`;
+      dom.terminal.appendChild(line);
+      dom.terminal.scrollTop = dom.terminal.scrollHeight;
+    }
+
+    function statusText() {
+      if (status === "idle") return t("statusIdle");
+      if (status === "running") return t("statusRunning");
+      if (status === "danger") return t("statusDanger");
+      return t("statusStopped");
+    }
+
+    function updateStatusUI() {
+      dom.statusValue.textContent = statusText();
+      if (status === "danger") {
+        dom.statusValue.className = "mono text-3xl text-red-400";
+      } else if (status === "running") {
+        dom.statusValue.className = "mono text-3xl text-amber-300";
+      } else {
+        dom.statusValue.className = "mono text-3xl text-cyan-300";
+      }
+    }
+
+    function updateModePanels() {
+      dom.rawPanel.classList.toggle("hidden", testMode !== "raw");
+      dom.visualPanel.classList.toggle("hidden", testMode !== "visual");
+      updateDisplay();
+    }
+
+    function updateGaugeVisuals() {
+      // Convert currentTemp to a percentage on a 0-100 visual scale.
+      const clamped = Math.max(0, Math.min(100, currentTemp));
+      dom.gaugeFill.style.height = `${clamped}%`;
+
+      let gaugeColor = "#22c55e"; // green
+      let stateText = t("visualNormal");
+
+      if (currentTemp >= 90) {
+        gaugeColor = "#ef4444"; // red
+        stateText = t("visualDanger");
+      } else if (currentTemp >= 82) {
+        gaugeColor = "#facc15"; // yellow
+        stateText = t("visualCaution");
+      }
+
+      dom.gaugeFill.style.background = gaugeColor;
+      dom.visualStateText.textContent = stateText;
+
+      // Danger pulse container only in visual mode when threshold crossed.
+      const shouldPulse = testMode === "visual" && currentTemp >= 90 && (status === "danger" || status === "running");
+      dom.gaugeShell.classList.toggle("danger-pulse", shouldPulse);
+    }
+
+    function updateDisplay() {
+      dom.rawTempText.textContent = formatTemp(currentTemp);
+      dom.visualTempText.textContent = formatTemp(currentTemp);
+      updateGaugeVisuals();
+    }
+
+    function computeAverage(list) {
+      if (!list.length) return null;
+      const total = list.reduce((sum, v) => sum + v, 0);
+      return Math.round(total / list.length);
+    }
+
+    function updateAnalytics() {
+      const rawAvg = computeAverage(results.raw);
+      const visualAvg = computeAverage(results.visual);
+
+      dom.modeAAvg.textContent = rawAvg === null ? "-" : rawAvg.toString();
+      dom.modeBAvg.textContent = visualAvg === null ? "-" : visualAvg.toString();
+      dom.modeACount.textContent = results.raw.length.toString();
+      dom.modeBCount.textContent = results.visual.length.toString();
+      dom.modeALast.textContent = results.raw.length ? results.raw[results.raw.length - 1].toString() : "-";
+      dom.modeBLast.textContent = results.visual.length ? results.visual[results.visual.length - 1].toString() : "-";
+    }
+
+    function clearEngineInterval() {
+      if (intervalRef) {
+        clearInterval(intervalRef);
+        intervalRef = null;
+      }
+    }
+
+    function resetTestState() {
+      clearEngineInterval();
+      currentTemp = 75.0;
+      startTime = null;
+      status = "idle";
+      updateStatusUI();
+      updateDisplay();
+      dom.gaugeShell.classList.remove("danger-pulse");
+      logToTerminal(t("logReset"));
+    }
+
+    function runTemperatureTick() {
+      // Increase temperature by a random value in [0.4, 1.5]
+      const increment = 0.4 + Math.random() * 1.1;
+      currentTemp += increment;
+      updateDisplay();
+
+      logToTerminal(`${t("logRise")}: ${currentTemp.toFixed(1)}C`);
+
+      // Danger threshold logic.
+      if (currentTemp >= 90.0 && status === "running") {
+        status = "danger";
+        startTime = Date.now();
+        updateStatusUI();
+        logToTerminal(`${t("logDanger")} ${currentTemp.toFixed(1)}C`);
+      }
+    }
+
+    function startTest() {
+      // If currently active, restart cleanly.
+      clearEngineInterval();
+      currentTemp = 75.0;
+      startTime = null;
+      status = "running";
+      updateStatusUI();
+      updateDisplay();
+      logToTerminal(t("logStart"));
+
+      // Required random interval between 200-400 ms:
+      // We run a single-tick setInterval, then re-create it with a new random delay.
+      const startRandomInterval = () => {
+        const delay = 200 + Math.floor(Math.random() * 201);
+        intervalRef = setInterval(() => {
+          clearEngineInterval();
+          runTemperatureTick();
+          if (status === "running" || status === "danger") {
+            startRandomInterval();
+          }
+        }, delay);
+      };
+
+      startRandomInterval();
+    }
+
+    function emergencyStop() {
+      if (status === "danger") {
+        // Correct reaction during danger state.
+        clearEngineInterval();
+        const reactionTime = Date.now() - startTime;
+        results[testMode].push(reactionTime);
+        updateAnalytics();
+
+        logToTerminal(`${t("logStopSuccess")} ${currentTemp.toFixed(1)}C. Reaction: ${reactionTime}ms`);
+        alert(`${t("alertReaction")} ${reactionTime} ms`);
+
+        status = "stopped";
+        updateStatusUI();
+        setTimeout(resetTestState, 200);
+        return;
+      }
+
+      if (status === "running") {
+        // False alarm before threshold.
+        clearEngineInterval();
+        logToTerminal(t("logFalseAlarm"));
+        alert(t("alertFalseAlarm"));
+        status = "stopped";
+        updateStatusUI();
+        setTimeout(resetTestState, 200);
+        return;
+      }
+
+      alert(t("alertAlreadyStopped"));
+    }
+
+    function applyTranslations() {
+      // Header/hypothesis
+      dom.titleLab.textContent = t("titleLab");
+      dom.langLabel.textContent = `${t("langLabel")}:`;
+      dom.hypothesisTitle.textContent = t("hypothesisTitle");
+      dom.hypothesisText.textContent = t("hypothesisText");
+      dom.langToggle.textContent = currentLang.toUpperCase();
+
+      // Controls
+      dom.modeTitle.textContent = t("modeTitle");
+      dom.modeRawLabel.textContent = t("modeRawLabel");
+      dom.modeVisualLabel.textContent = t("modeVisualLabel");
+      dom.startBtn.textContent = t("startButton");
+      dom.statusLabel.textContent = t("statusLabel");
+
+      // HMI
+      dom.rawTitle.textContent = t("rawTitle");
+      dom.rawHint.textContent = t("rawHint");
+      dom.visualTitle.textContent = t("visualTitle");
+
+      // E-stop
+      dom.estopCaption.textContent = t("estopCaption");
+      dom.estopHint.textContent = t("estopHint");
+
+      // Analytics
+      dom.analyticsTitle.textContent = t("analyticsTitle");
+      dom.tableModeCol.textContent = t("tableModeCol");
+      dom.tableAvgCol.textContent = t("tableAvgCol");
+      dom.tableCountCol.textContent = t("tableCountCol");
+      dom.tableLastCol.textContent = t("tableLastCol");
+      dom.modeAName.textContent = t("modeAName");
+      dom.modeBName.textContent = t("modeBName");
+      dom.terminalTitle.textContent = t("terminalTitle");
+
+      updateStatusUI();
+      updateDisplay();
+    }
+
+    /**
+     * Initial bindings and startup.
+     */
+    function init() {
+      // Mode radio controls (A/B independent variable)
+      document.querySelectorAll('input[name="mode"]').forEach((radio) => {
+        radio.addEventListener("change", (ev) => {
+          testMode = ev.target.value;
+          updateModePanels();
+          logToTerminal(`${t("logModeChanged")} ${testMode.toUpperCase()}`);
+        });
+      });
+
+      // Start system test
+      dom.startBtn.addEventListener("click", startTest);
+
+      // E-stop reaction action
+      dom.estopBtn.addEventListener("click", emergencyStop);
+
+      // TR/EN toggle
+      dom.langToggle.addEventListener("click", () => {
+        currentLang = currentLang === "en" ? "tr" : "en";
+        applyTranslations();
+        logToTerminal(t("logLangChanged"));
+      });
+
+      applyTranslations();
+      updateModePanels();
+      updateStatusUI();
+      updateAnalytics();
+      logToTerminal(t("logReady"));
+    }
+
+    init();
+  </script>
+</body>
+</html>
